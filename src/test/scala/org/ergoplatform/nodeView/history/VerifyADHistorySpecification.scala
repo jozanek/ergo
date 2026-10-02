@@ -366,6 +366,108 @@ class VerifyADHistorySpecification extends ErgoCorePropertyTest with NoShrink {
     history.bestHeaderOpt.value shouldBe common
     history.isSemanticallyValid(tip.id) shouldBe Invalid
     history.applicable(child) shouldBe false
+
+    // Startup repair must not erase a deliberate, durable invalidation.
+    ErgoHistory.repairIfNeeded(history) shouldBe false
+    history.bestHeaderOpt.value shouldBe common
+    history.isSemanticallyValid(tip.id) shouldBe Invalid
+    history.contains(tip.id) shouldBe true
+    history.headerIdsAtHeight(tip.height) should contain(tip.id)
+    history.bestHeaderIdAtHeight(tip.height) shouldBe None
+    history.applicable(child) shouldBe false
+  }
+
+  property("startup repair retains a readable off-tip header row") {
+    var history = genHistory(2)._1
+    val common = history.bestFullBlockOpt.value.header
+    val other = nextHeader(Some(common), history.difficultyCalculator, useRealTs = false)
+
+    history = history.append(other).get._1
+    history = history.reportModifierIsInvalid(other,
+      ProgressInfo[PM](Some(common.id), Seq.empty, Seq.empty, Seq.empty)).get._1
+    history = history.reportModifierIsValid(other).get
+    history.bestHeaderOpt.value shouldBe common
+    history.isSemanticallyValid(other.id) shouldBe Valid
+
+    ErgoHistory.repairIfNeeded(history) shouldBe false
+    history.contains(other.id) shouldBe true
+    history.headerIdsAtHeight(other.height) should contain(other.id)
+    history.isSemanticallyValid(other.id) shouldBe Valid
+  }
+
+  property("startup repair removes a missing sibling without erasing an invalid header") {
+    var history = genHistory(2)._1
+    val common = history.bestFullBlockOpt.value.header
+    val first = nextHeader(Some(common), history.difficultyCalculator, useRealTs = false)
+    val second = nextHeader(Some(common), history.difficultyCalculator,
+      tsOpt = Some(first.timestamp + 1), useRealTs = false)
+    history = history.append(first).get._1
+    history = history.append(second).get._1
+
+    val rollback = ProgressInfo[PM](Some(common.id), Seq.empty, Seq.empty, Seq.empty)
+    history = history.reportModifierIsInvalid(first, rollback).get._1
+    history = history.reportModifierIsInvalid(second, rollback).get._1
+    history.bestHeaderOpt.value shouldBe common
+    history.headerIdsAtHeight(first.height).toSet shouldBe Set(first.id, second.id)
+
+    history.historyStorage.remove(
+      Array.empty[scorex.db.ByteArrayWrapper], Array(second.id)).get
+    history.historyStorage.modifierById(first.id) shouldBe Some(first)
+    history.historyStorage.modifierById(second.id) shouldBe None
+
+    ErgoHistory.repairIfNeeded(history) shouldBe true
+    history.bestHeaderOpt.value shouldBe common
+    history.headerIdsAtHeight(first.height) shouldBe Seq(first.id)
+    history.contains(first.id) shouldBe true
+    history.isSemanticallyValid(first.id) shouldBe Invalid
+    history.contains(second.id) shouldBe false
+  }
+
+  property("cold restart retains invalidity of header-only siblings") {
+    val baseSettings = org.ergoplatform.utils.ErgoNodeTestConstants.settings
+    val historySettings = baseSettings.copy(
+      directory = createTempDir.getAbsolutePath,
+      nodeSettings = baseSettings.nodeSettings.copy(
+        stateType = StateType.Digest,
+        verifyTransactions = true,
+        blocksToKeep = BlocksToKeep,
+        extraIndex = false))
+    var history = ErgoHistory.readOrGenerate(historySettings)(null)
+    history.writeMinimalFullBlockHeight(GenesisHeight)
+    history.isHeadersChainSyncedVar = true
+    history = applyChain(history, genChain(2, history))
+
+    val common = history.bestFullBlockOpt.value.header
+    val first = nextHeader(Some(common), history.difficultyCalculator, useRealTs = false)
+    val second = nextHeader(Some(common), history.difficultyCalculator,
+      tsOpt = Some(first.timestamp + 1), useRealTs = false)
+    history = history.append(first).get._1
+    history = history.append(second).get._1
+    history.bestHeaderOpt.value shouldBe first
+
+    val rollback = ProgressInfo[PM](Some(common.id), Seq.empty, Seq.empty, Seq.empty)
+    history = history.reportModifierIsInvalid(first, rollback).get._1
+    history.bestHeaderOpt.value shouldBe second
+    history = history.reportModifierIsInvalid(second, rollback).get._1
+    history.bestHeaderOpt.value shouldBe common
+    history.headerIdsAtHeight(first.height).toSet shouldBe Set(first.id, second.id)
+    history.isSemanticallyValid(first.id) shouldBe Invalid
+    history.isSemanticallyValid(second.id) shouldBe Invalid
+
+    history.closeStorage()
+    val reopened = ErgoHistory.readOrGenerate(historySettings)(null)
+    try {
+      reopened.bestHeaderOpt.value shouldBe common
+      reopened.bestFullBlockIdOpt shouldBe Some(common.id)
+      reopened.bestHeaderIdAtHeight(first.height) shouldBe None
+      reopened.headerIdsAtHeight(first.height).toSet shouldBe Set(first.id, second.id)
+      reopened.contains(first.id) shouldBe true
+      reopened.contains(second.id) shouldBe true
+      reopened.isSemanticallyValid(first.id) shouldBe Invalid
+      reopened.isSemanticallyValid(second.id) shouldBe Invalid
+    } finally {
+      reopened.closeStorage()
+    }
   }
 
   property("successive invalidations retain a third valid sibling at the same height") {
@@ -432,6 +534,12 @@ class VerifyADHistorySpecification extends ErgoCorePropertyTest with NoShrink {
       val (repHistory, _) = history.reportModifierIsInvalid(fullBlock.blockTransactions, progressInfo).get
       repHistory.bestFullBlockOpt.value.header shouldBe history.bestHeaderOpt.value
       repHistory.bestHeaderOpt.value shouldBe parentHeader
+      ErgoHistory.repairIfNeeded(repHistory) shouldBe false
+      repHistory.isSemanticallyValid(fullBlock.header.id) shouldBe Invalid
+      repHistory.isSemanticallyValid(fullBlock.blockTransactions.id) shouldBe Invalid
+      repHistory.contains(fullBlock.header.id) shouldBe true
+      repHistory.contains(fullBlock.blockTransactions.id) shouldBe true
+      repHistory.bestHeaderIdAtHeight(fullBlock.header.height) shouldBe None
     }
   }
 
