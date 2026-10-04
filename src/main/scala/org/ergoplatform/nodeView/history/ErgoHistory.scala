@@ -15,8 +15,10 @@ import org.ergoplatform.nodeView.history.storage.modifierprocessors._
 import org.ergoplatform.settings.ErgoSettings
 import org.ergoplatform.utils.LoggingUtil
 import org.ergoplatform.validation.RecoverableModifierError
+import scorex.db.ByteArrayWrapper
 import scorex.util.{ModifierId, ScorexLogging, idToBytes}
 
+import scala.collection.mutable.ArrayBuffer
 import scala.util.{Failure, Success, Try}
 
 /**
@@ -141,11 +143,33 @@ trait ErgoHistory
           case _ =>
             // Modifiers from best header and best full chain are involved, links change required
             val newBestHeaderOpt = loopHeightDown(headersHeight, id => !invalidatedIds.contains(id))
+            // The per-height rows are also the source for bestHeaderIdAtHeight and V2 sync.
+            // Only the divergent suffix needs rewriting; the first matching row is the
+            // common ancestor of the old and newly selected best header chains.
+            val selectedHeaderRows = newBestHeaderOpt.toSeq.flatMap { tip =>
+              val rows = ArrayBuffer.empty[(ByteArrayWrapper, Array[Byte])]
+              var current = Option(tip)
+              var reachedCommonAncestor = false
+              while (current.nonEmpty && !reachedCommonAncestor) {
+                val h = current.get
+                val ids = headerIdsAtHeight(h.height)
+                if (ids.headOption.contains(h.id)) {
+                  reachedCommonAncestor = true
+                } else {
+                  rows += (heightIdsKey(h.height) ->
+                    (h.id +: ids.filterNot(_ == h.id)).flatMap(idToBytes).toArray)
+                  current = typedModifierById[Header](h.parentId)
+                }
+              }
+              rows
+            }
 
             if (!bestFullIsInvalidated) {
               //Only headers chain involved
               historyStorage.insert(
-                newBestHeaderOpt.map(h => BestHeaderKey -> idToBytes(h.id)).toArray,
+                (validityRow.toSeq ++
+                  newBestHeaderOpt.map(h => BestHeaderKey -> idToBytes(h.id)) ++
+                  selectedHeaderRows).toArray,
                 BlockSection.emptyArray
               ).map { _ =>
                 this -> ProgressInfo[BlockSection](None, Seq.empty, Seq.empty, Seq.empty)
@@ -173,7 +197,7 @@ trait ErgoHistory
 
               val changedLinks = validHeadersChain.lastOption.map(b => BestFullBlockKey -> idToBytes(b.id)) ++
                 newBestHeaderOpt.map(h => BestHeaderKey -> idToBytes(h.id)).toSeq
-              val toInsert = validityRow ++ changedLinks ++ chainStatusRow
+              val toInsert = validityRow ++ changedLinks ++ chainStatusRow ++ selectedHeaderRows
               historyStorage.insert(toInsert, BlockSection.emptyArray).map { _ =>
                 val toRemove = if (genesisInvalidated) invalidatedChain else invalidatedChain.tail
                 this -> ProgressInfo(Some(branchPointHeader.id), toRemove, validChain, Seq.empty)
@@ -239,20 +263,32 @@ object ErgoHistory extends ScorexLogging {
     dir
   }
 
-  // check if there is possible database corruption when there is header after
-  // recognized blockchain tip marked as invalid
+  // Check the row after a selected full-block tip for unreadable header records.
   protected[nodeView] def repairIfNeeded(history: ErgoHistory): Boolean = history.historyStorage.synchronized {
     val bestHeaderHeight = history.headersHeight
     val bestFullBlockHeight = history.bestFullBlockOpt.map(_.height).getOrElse(-1)
     val afterHeaders = history.headerIdsAtHeight(bestHeaderHeight + 1)
 
     if (bestHeaderHeight == bestFullBlockHeight && afterHeaders.nonEmpty) {
-      log.warn("Found suspicious continuation, clearing it...")
-      afterHeaders.map { hId =>
-        history.forgetHeader(hId)
+      // A failed header or a lower-score fork can legitimately remain indexed
+      // above the selected tip. Only a missing or unreadable record needs repair.
+      val (retainedHeaders, suspiciousHeaders) = afterHeaders.partition { hId =>
+        history.historyStorage.modifierById(hId).exists(_.isInstanceOf[Header])
       }
-      history.historyStorage.remove(Array(history.heightIdsKey(bestHeaderHeight + 1)), Array.empty[ModifierId])
-      true
+      if (suspiciousHeaders.nonEmpty) {
+        log.warn("Found suspicious continuation, clearing it...")
+        suspiciousHeaders.foreach(hId => history.forgetHeader(hId).get)
+        val rowKey = history.heightIdsKey(bestHeaderHeight + 1)
+        if (retainedHeaders.nonEmpty) {
+          history.historyStorage.insert(
+            Array(rowKey -> retainedHeaders.flatMap(idToBytes).toArray),
+            BlockSection.emptyArray
+          ).get
+        } else {
+          history.historyStorage.remove(Array(rowKey), Array.empty[ModifierId]).get
+        }
+        true
+      } else false
     } else {
       false
     }

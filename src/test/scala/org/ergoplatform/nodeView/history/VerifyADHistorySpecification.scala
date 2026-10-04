@@ -1,7 +1,7 @@
 package org.ergoplatform.nodeView.history
 
 import org.ergoplatform.consensus.ProgressInfo
-import org.ergoplatform.modifiers.history.extension.Extension
+import org.ergoplatform.modifiers.history.extension.{Extension, ExtensionCandidate}
 import org.ergoplatform.modifiers.history.HeaderChain
 import org.ergoplatform.modifiers.history.header.Header
 import org.ergoplatform.nodeView.history.ErgoHistoryUtils._
@@ -9,6 +9,7 @@ import org.ergoplatform.modifiers.{BlockSection, ErgoFullBlock}
 import org.ergoplatform.nodeView.ErgoModifiersCache
 import org.ergoplatform.nodeView.state.StateType
 import org.ergoplatform.utils.{ErgoCorePropertyTest, NoShrink}
+import org.ergoplatform.utils.ErgoCoreTestConstants.defaultExtension
 import org.ergoplatform.consensus.ModifierSemanticValidity._
 
 import scala.collection.mutable.ArrayBuffer
@@ -319,7 +320,183 @@ class VerifyADHistorySpecification extends ErgoCorePropertyTest with NoShrink {
     history.reportModifierIsInvalid(fork1.head.header, progressInfo)
 
     history.bestHeaderOpt.value shouldBe fork2.last.header
+    history.bestHeaderIdAtHeight(fork2.last.header.height) shouldBe Some(fork2.last.header.id)
+    history.isInBestChain(fork2.last.header) shouldBe true
+    history.isInBestChain(fork1.last.header) shouldBe false
+    history.bestHeaderIdAtHeight(fork1.last.header.height) shouldBe None
+    history.syncInfoV2(full = false).lastHeaders.map(_.id) should contain(fork2.last.header.id)
     history.bestFullBlockOpt.value shouldBe fork2.last
+  }
+
+  property("invalidating a header-only tip should select the other header at its height") {
+    var history = genHistory(2)._1
+    val common = history.bestFullBlockOpt.value.header
+    val first = nextHeader(Some(common), history.difficultyCalculator, useRealTs = false)
+    val second = nextHeader(Some(common), history.difficultyCalculator,
+      tsOpt = Some(first.timestamp + 1), useRealTs = false)
+    first.id should not be second.id
+
+    history = history.append(first).get._1
+    history = history.append(second).get._1
+    history.bestHeaderOpt.value shouldBe first
+    val fullBlockBefore = history.bestFullBlockIdOpt
+
+    history = history.reportModifierIsInvalid(first,
+      ProgressInfo[PM](Some(common.id), Seq.empty, Seq.empty, Seq.empty)).get._1
+    history.bestHeaderOpt.value shouldBe second
+    history.bestHeaderIdAtHeight(second.height) shouldBe Some(second.id)
+    history.isInBestChain(second) shouldBe true
+    history.bestFullBlockIdOpt shouldBe fullBlockBefore
+  }
+
+  property("invalidating a header-only best tip marks its semantic validity invalid") {
+    var history = genHistory(2)._1
+    val common = history.bestFullBlockOpt.value.header
+    val tip = nextHeader(Some(common), history.difficultyCalculator, useRealTs = false)
+
+    history = history.append(tip).get._1
+    val child = nextHeader(Some(tip), history.difficultyCalculator, useRealTs = false)
+    history.bestHeaderOpt.value shouldBe tip
+    history.isSemanticallyValid(tip.id) shouldBe Unknown
+    history.applicable(child) shouldBe true
+
+    history = history.reportModifierIsInvalid(tip,
+      ProgressInfo[PM](Some(common.id), Seq.empty, Seq.empty, Seq.empty)).get._1
+
+    history.bestHeaderOpt.value shouldBe common
+    history.isSemanticallyValid(tip.id) shouldBe Invalid
+    history.applicable(child) shouldBe false
+
+    // Startup repair must not erase a deliberate, durable invalidation.
+    ErgoHistory.repairIfNeeded(history) shouldBe false
+    history.bestHeaderOpt.value shouldBe common
+    history.isSemanticallyValid(tip.id) shouldBe Invalid
+    history.contains(tip.id) shouldBe true
+    history.headerIdsAtHeight(tip.height) should contain(tip.id)
+    history.bestHeaderIdAtHeight(tip.height) shouldBe None
+    history.applicable(child) shouldBe false
+  }
+
+  property("startup repair retains a readable off-tip header row") {
+    var history = genHistory(2)._1
+    val common = history.bestFullBlockOpt.value.header
+    val other = nextHeader(Some(common), history.difficultyCalculator, useRealTs = false)
+
+    history = history.append(other).get._1
+    history = history.reportModifierIsInvalid(other,
+      ProgressInfo[PM](Some(common.id), Seq.empty, Seq.empty, Seq.empty)).get._1
+    history = history.reportModifierIsValid(other).get
+    history.bestHeaderOpt.value shouldBe common
+    history.isSemanticallyValid(other.id) shouldBe Valid
+
+    ErgoHistory.repairIfNeeded(history) shouldBe false
+    history.contains(other.id) shouldBe true
+    history.headerIdsAtHeight(other.height) should contain(other.id)
+    history.isSemanticallyValid(other.id) shouldBe Valid
+  }
+
+  property("startup repair removes a missing sibling without erasing an invalid header") {
+    var history = genHistory(2)._1
+    val common = history.bestFullBlockOpt.value.header
+    val first = nextHeader(Some(common), history.difficultyCalculator, useRealTs = false)
+    val second = nextHeader(Some(common), history.difficultyCalculator,
+      tsOpt = Some(first.timestamp + 1), useRealTs = false)
+    history = history.append(first).get._1
+    history = history.append(second).get._1
+
+    val rollback = ProgressInfo[PM](Some(common.id), Seq.empty, Seq.empty, Seq.empty)
+    history = history.reportModifierIsInvalid(first, rollback).get._1
+    history = history.reportModifierIsInvalid(second, rollback).get._1
+    history.bestHeaderOpt.value shouldBe common
+    history.headerIdsAtHeight(first.height).toSet shouldBe Set(first.id, second.id)
+
+    history.historyStorage.remove(
+      Array.empty[scorex.db.ByteArrayWrapper], Array(second.id)).get
+    history.historyStorage.modifierById(first.id) shouldBe Some(first)
+    history.historyStorage.modifierById(second.id) shouldBe None
+
+    ErgoHistory.repairIfNeeded(history) shouldBe true
+    history.bestHeaderOpt.value shouldBe common
+    history.headerIdsAtHeight(first.height) shouldBe Seq(first.id)
+    history.contains(first.id) shouldBe true
+    history.isSemanticallyValid(first.id) shouldBe Invalid
+    history.contains(second.id) shouldBe false
+  }
+
+  property("cold restart retains invalidity of header-only siblings") {
+    val baseSettings = org.ergoplatform.utils.ErgoNodeTestConstants.settings
+    val historySettings = baseSettings.copy(
+      directory = createTempDir.getAbsolutePath,
+      nodeSettings = baseSettings.nodeSettings.copy(
+        stateType = StateType.Digest,
+        verifyTransactions = true,
+        blocksToKeep = BlocksToKeep,
+        extraIndex = false))
+    var history = ErgoHistory.readOrGenerate(historySettings)(null)
+    history.writeMinimalFullBlockHeight(GenesisHeight)
+    history.isHeadersChainSyncedVar = true
+    history = applyChain(history, genChain(2, history))
+
+    val common = history.bestFullBlockOpt.value.header
+    val first = nextHeader(Some(common), history.difficultyCalculator, useRealTs = false)
+    val second = nextHeader(Some(common), history.difficultyCalculator,
+      tsOpt = Some(first.timestamp + 1), useRealTs = false)
+    history = history.append(first).get._1
+    history = history.append(second).get._1
+    history.bestHeaderOpt.value shouldBe first
+
+    val rollback = ProgressInfo[PM](Some(common.id), Seq.empty, Seq.empty, Seq.empty)
+    history = history.reportModifierIsInvalid(first, rollback).get._1
+    history.bestHeaderOpt.value shouldBe second
+    history = history.reportModifierIsInvalid(second, rollback).get._1
+    history.bestHeaderOpt.value shouldBe common
+    history.headerIdsAtHeight(first.height).toSet shouldBe Set(first.id, second.id)
+    history.isSemanticallyValid(first.id) shouldBe Invalid
+    history.isSemanticallyValid(second.id) shouldBe Invalid
+
+    history.closeStorage()
+    val reopened = ErgoHistory.readOrGenerate(historySettings)(null)
+    try {
+      reopened.bestHeaderOpt.value shouldBe common
+      reopened.bestFullBlockIdOpt shouldBe Some(common.id)
+      reopened.bestHeaderIdAtHeight(first.height) shouldBe None
+      reopened.headerIdsAtHeight(first.height).toSet shouldBe Set(first.id, second.id)
+      reopened.contains(first.id) shouldBe true
+      reopened.contains(second.id) shouldBe true
+      reopened.isSemanticallyValid(first.id) shouldBe Invalid
+      reopened.isSemanticallyValid(second.id) shouldBe Invalid
+    } finally {
+      reopened.closeStorage()
+    }
+  }
+
+  property("successive invalidations retain a third valid sibling at the same height") {
+    var history = genHistory(2)._1
+    val common = history.bestFullBlockOpt.value
+    val siblings = (0 until 3).map { i =>
+      val minerTag = ExtensionCandidate(Seq(Array(0: Byte, 2: Byte) -> Array(i.toByte, 0.toByte)))
+      nextBlock(Some(common), common.blockTransactions.txs, defaultExtension ++ minerTag)
+    }
+    siblings.map(_.header.id).distinct.size shouldBe 3
+
+    history = applyChain(history, siblings.take(2))
+    history = history.append(siblings(2).header).get._1
+    history.bestHeaderIdOpt shouldBe Some(siblings.head.id)
+    history.bestFullBlockIdOpt shouldBe Some(siblings.head.id)
+
+    history = history.reportModifierIsInvalid(siblings.head.header,
+      ProgressInfo[PM](Some(common.id), Seq.empty, Seq.empty, Seq.empty)).get._1
+    history.isSemanticallyValid(siblings.head.id) shouldBe Invalid
+    history.bestHeaderIdOpt shouldBe Some(siblings(1).id)
+    history.bestFullBlockIdOpt shouldBe Some(siblings(1).id)
+
+    history = applyChain(history, Seq(siblings(2)))
+    history.bestFullBlockIdOpt shouldBe Some(siblings(1).id)
+
+    history = history.reportModifierIsInvalid(siblings(1).header,
+      ProgressInfo[PM](Some(common.id), Seq.empty, Seq.empty, Seq.empty)).get._1
+    history.bestFullBlockIdOpt shouldBe Some(siblings(2).id)
+    history.bestHeaderIdOpt shouldBe Some(siblings(2).id)
   }
 
   property("reportModifierIsInvalid for non-last block in best chain without better forks") {
@@ -357,6 +534,12 @@ class VerifyADHistorySpecification extends ErgoCorePropertyTest with NoShrink {
       val (repHistory, _) = history.reportModifierIsInvalid(fullBlock.blockTransactions, progressInfo).get
       repHistory.bestFullBlockOpt.value.header shouldBe history.bestHeaderOpt.value
       repHistory.bestHeaderOpt.value shouldBe parentHeader
+      ErgoHistory.repairIfNeeded(repHistory) shouldBe false
+      repHistory.isSemanticallyValid(fullBlock.header.id) shouldBe Invalid
+      repHistory.isSemanticallyValid(fullBlock.blockTransactions.id) shouldBe Invalid
+      repHistory.contains(fullBlock.header.id) shouldBe true
+      repHistory.contains(fullBlock.blockTransactions.id) shouldBe true
+      repHistory.bestHeaderIdAtHeight(fullBlock.header.height) shouldBe None
     }
   }
 
