@@ -1,0 +1,54 @@
+# DRAFT - would live at .github/ISSUE_TEMPLATE/bug_report.yml
+name: Bug report
+description: Something in the node, wallet or API does not work as documented.
+labels: ["C-bug", "S-needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Security issue?** If a remote party could crash, stall or split nodes, steal funds or
+        expose keys, do not file it here. Use private reporting (see SECURITY.md).
+  - type: input
+    id: version
+    attributes:
+      label: Node version
+      placeholder: "6.0.8"
+    validations:
+      required: true
+  - type: dropdown
+    id: network
+    attributes:
+      label: Network
+      options: [mainnet, testnet, devnet, other]
+    validations:
+      required: true
+  - type: dropdown
+    id: state
+    attributes:
+      label: State type and indexer
+      multiple: true
+      options: [utxo, digest, extra indexer enabled, mining enabled, wallet enabled]
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what you expected
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Commands, config changes, API calls. Cite file:line if you traced it.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Trimmed. Remove API keys, IPs you do not want public, and wallet data.
+      render: text
+  - type: textarea
+    id: fix
+    attributes:
+      label: Fix PR (if any)
+      description: Link your PR if you already have one.

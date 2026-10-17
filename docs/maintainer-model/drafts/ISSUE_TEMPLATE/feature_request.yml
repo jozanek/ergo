@@ -1,0 +1,37 @@
+# DRAFT - would live at .github/ISSUE_TEMPLATE/feature_request.yml
+name: Feature or behaviour change
+description: Propose a change. Direction is agreed here before any PR.
+labels: ["C-enhancement", "S-needs-triage"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: Who needs this and what they cannot do today.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: checkboxes
+    id: impact
+    attributes:
+      label: Does it touch any of these?
+      options:
+        - label: Validity/consensus rules or voting parameters
+        - label: On-disk formats, schema versions or migrations
+        - label: P2P messages or peer handling
+        - label: REST API (new routes, auth, defaults)
+        - label: Published library API (ergo-core, ergo-wallet)
+  - type: markdown
+    attributes:
+      value: |
+        Please wait for the `S-accepted` label before opening a PR. PRs without an accepted issue
+        are paused.
