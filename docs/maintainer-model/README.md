@@ -10,6 +10,7 @@ effect by accident.
 | File | Contents |
 |---|---|
 | this file | baseline, decisions, one-page map, where this differs from the source article |
+| [HANDOFF.md](HANDOFF.md) | for whoever continues: where the branch lives, settled decisions, what is not done |
 | [streams.md](streams.md) | per-stream spec (trigger, automation, hand-off, decisions, permissions, failure modes, cost) |
 | [tiers.md](tiers.md) | risk tiers, hard-block paths, branch protection settings |
 | [dispatcher.md](dispatcher.md) | how agents and the write-token holder are wired, convergence and noise rules |
