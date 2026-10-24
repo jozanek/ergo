@@ -1,8 +1,8 @@
 # Risk tiers and hard-blocks
 
 The tier comes from **the change**, not the author. Authors change only which gates apply
-(streams.md, stream 2) and, once trusted, the WIP limit. A bot's output never fills a human
-slot: tiers count maintainer approvals only.
+(streams.md, stream 2). A bot's output never fills a human slot: tiers count maintainer
+approvals only.
 
 ## Tiers
 
@@ -13,8 +13,9 @@ slot: tiers count maintainer approvals only.
 | **T2 both maintainers** | kushti **and** jozanek, on the same head commit | both do the T1 read; second reviewer starts from the first one's notes | any change that trips a T2 flag (below) |
 
 A maintainer's own PR always needs the other maintainer: GitHub does not let authors approve
-their own PR. On an agent-written PR, the maintainer who directed the agent is accountable as
-its author.
+their own PR. For T2, a maintainer author counts as one of the two, so the other maintainer's
+approval is enough. On an agent-written PR, the maintainer who directed the agent is accountable
+as its author.
 
 "Everything is top tier" is honoured by T1 being a real read for all production code. There is
 no tier where code merges unread.
@@ -32,11 +33,16 @@ You chose "one human, both on flag". The flag comes from three sources, in this 
 3. **First reviewer.** Applies `T2-both` when unsure. Rule of thumb from the article: if you
    cannot say what the checks would miss, ask for the second review.
 
-Measured cost of rule 1: in this clone's history, **19 of 68** PRs merged since 2026-01-21
-would have tripped it (28%, about 2 a month). 4 of the 19 only touched CI workflows and 2 only
-touched `testnet.conf`. If that loads kushti too much, the levers in order are: move `ci.yml` to
-T1 once actions are SHA-pinned and snapshot publishing has its own workflow; then move
-testnet-only config to T1.
+Measured cost of rule 1, recomputed on 2026-10-22: **27 of 111** PRs merged from 2026-01-21
+would have tripped it (24%). The count covers PRs into `master`, `v*` and `weak-blocks`,
+includes squash merges, and excludes release PRs. In the last 90 days it was 17 of 76 (22%),
+about 6 a month. By category: consensus 17, supply chain 6, wire format 3, storage format 2,
+keys and auth 2 (a PR can count in several). 4 of the 27 only touched CI workflows, and 1 only
+touched `testnet.conf`. The first estimate (19 of 68) counted only "Merge pull request" commits
+on `master` in a shallow clone, so it missed squash merges, `weak-blocks` and unreleased
+`v6.0.9` work. If this is too much work for the maintainers, the options, in order, are: move
+`ci.yml` to T1 once actions are SHA-pinned and snapshot publishing has its own workflow; then
+move testnet-only config to T1.
 
 Where this departs from your answer: rule 1 makes some flags automatic rather than waiting for a
 model or reviewer to notice. The reason is that these paths are where "what nodes accept"
@@ -89,31 +95,33 @@ Path rules also over-flag pure refactors in listed files; that cost is accepted.
 ## Trusted authors (lighter path, earned)
 
 Today: maintainers only. An external author becomes trusted by decision of both maintainers
-after, for example: 10+ merged non-trivial PRs over 8+ weeks, no attributed regressions,
-AI tooling disclosed, no gate waivers needed in the last month, findings answered within the
-round cap. Trusted means: gates G2/G6/G7 relaxed, WIP limit 10, AI review on open without a
-trigger. It never removes CODEOWNERS approval or a T2 flag. Trust is revoked by either
-maintainer after a regression or a policy breach.
+after, for example: 10+ merged non-trivial PRs over 8+ weeks, no attributed regressions, no
+gate waivers needed in the last month, findings answered within the round cap. Trusted means:
+gates G2/G6/G7 relaxed and AI review on open without a trigger. It never removes CODEOWNERS
+approval or a T2 flag. Trust is revoked by either maintainer after a regression or a policy
+breach.
 
 ## Enforcement (CODEOWNERS and rulesets, not a model)
 
-Repository rulesets on `master` and `v*` (release and integration branches):
+Repository rulesets on `master`, the release branches (`v*`) and the feature branches that take
+contributions (today `weak-blocks`; open-questions.md K5). An admin or owner applies them;
+jozanek has write access.
 
 | Setting | Value | Why |
 |---|---|---|
-| Require a pull request | on, no direct pushes | stops unreviewed merges; kushti's direct pushes to `v*` must become PRs (open question 1) |
-| Required approvals | 0, plus **Require review from Code Owners** | CODEOWNERS owns everything but docs, so code needs one maintainer and docs need none |
-| Dismiss stale approvals on push; require approval of the most recent push | on | approval covers one commit |
+| Require a pull request | on, no direct pushes | stops unreviewed merges; fixes and merges from base also go through PRs, for both maintainers (open-questions.md K1) |
+| Required approvals | 0, plus **Require review from Code Owners** | CODEOWNERS owns everything but docs, so code needs one maintainer and docs need none (0 approvals with code-owner review is not verified; test it on the fork first, open-questions.md A9) |
+| Dismiss stale approvals on push; require approval of the most recent push | on | approval covers one commit; if a maintainer pushes to someone's PR, that maintainer's approval no longer counts, so the other maintainer approves |
 | Require conversation resolution | on | every finding is fixed or answered |
-| Required status checks | `test_wallet`, `test_core`, `test_node`, `scalafmt`, `ergo-tier` (pinned to the dispatcher's GitHub App) | IT stays non-required until its flake rate is under 5% |
+| Required status checks | `test_wallet`, `test_core`, `test_node`, `ergo-tier` (pinned to the dispatcher's GitHub App) | IT stays non-required until its flake rate is under 5%; no scalafmt check for now |
 | Block force pushes and deletion | on | deletion auto-closed approved PRs before |
-| Bypass list | empty; org-admin emergency bypass only, each use reviewed weekly | |
+| Bypass list | empty: no bypass, also in an emergency (open-questions.md K2) | with two code owners and no backup approver, each maintainer's own PR waits for the other; the digest still lists any PR merged without the required approvals |
 | Merge queue | later (rollout phase 3) | stale-base breakage is handled by G4 for now |
 
 `ergo-tier` is a deterministic check posted by the dispatcher. It fails when: a T2 flag is set
-and the head commit lacks approvals from both maintainers; an Important AI finding is unresolved;
-or any bot account has an `APPROVED` review on the PR. It cannot approve anything; it can only
-block.
+and the head commit lacks approvals from both maintainers (a maintainer author counts as one); an
+Important AI finding is unresolved; or any bot account has an `APPROVED` review on the PR. It
+cannot approve anything; it can only block.
 
 Actions settings: workflows default to read-only `GITHUB_TOKEN`; fork PR workflows from
 first-time contributors need approval; no `pull_request_target` workflow checks out PR code.

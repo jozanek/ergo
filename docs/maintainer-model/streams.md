@@ -37,8 +37,7 @@ release, won't-fix, and first contact: for first-time authors you send the draft
 
 **Template / auto-close.** Dispatcher applies `C-*`/`A-*` labels (cheap to undo). For repeat
 authors it posts the needs-info template when required fields are missing. Nothing closes
-automatically: `S-needs-info` with no author reply in 30 days joins the weekly close batch
-(stream 10), which you approve.
+automatically, and nothing is closed for age (no backlog sweep, by decision).
 
 **Permissions.** Agent: issue text as data, no GitHub token. Dispatcher: issues write (labels,
 template comments).
@@ -65,16 +64,16 @@ a fork PR's own workflow files and scripts are attacker-controlled.
 |---|---|---|---|
 | G1 template | Testing, Risk, Revert/downgrade sections non-empty | `S-needs-author` + checklist | boilerplate answers (reviewer reads them) |
 | G2 size | > 800 changed non-test lines from an untrusted author | `S-needs-split`; no AI review unless a maintainer asks | small diffs that are dangerous (tier handles risk, not size) |
-| G3 base | base is not the current integration branch (list in tier-rules.yml) | template comment | intentional backports (maintainer waives) |
+| G3 base | base is `master` (except release PRs), or a `v*` branch that is not a live release branch (list in tier-rules.yml); feature branches pass | template comment | intentional backports (maintainer waives) |
 | G4 stale base | PR carries commits already on another branch (patch-id match) or > 20 commits | `S-needs-rebase` | bloat from squashed copies with new patch ids |
-| G5 WIP limit | > 5 open non-draft PRs awaiting maintainers from one external author | newest get `S-queued`, no review, no tokens | one person using several accounts (use interaction limits) |
 | G6 direction | enhancement or behaviour change from an external author without a linked `S-accepted` issue | `S-needs-direction`; discuss on the issue first | a "bugfix" that is really a design change (classifier and reviewer can apply it) |
 | G7 first-timer | `author_association` FIRST_TIME_CONTRIBUTOR/NONE | `X-first-time`; Actions approval required; you do first contact | new accounts with a prior trivial merged PR |
 | G8 overlap | open PRs touching intersecting hunks | listed in packet; > 50% overlap with an older PR means `X-possible-duplicate` | duplicate intent in different files |
 | G9 CI | required checks green on head SHA; failures matched to flaky ledger | packet annotation | a real failure in a known-flaky test (stream 9) |
 | G10 security | stream-1 pre-filter applied to PR title, body and paths | silent hold | as stream 1 |
 
-Drafts are ignored entirely (no gates, no review) until marked ready.
+G5 (per-author PR limit) was removed on 2026-10-22: there is no PR limit, by decision. Drafts
+are ignored entirely (no gates, no review) until marked ready.
 
 **Hands you.** Nothing unless a gate is waived or a PR is held. Authors get one templated
 comment listing failed gates, edited in place on each push (never a new comment per push).
@@ -98,9 +97,9 @@ comment listing failed gates, edited in place on each push (never a new comment 
 comment `/ergo ready` (diff-only, at most once a day), or maintainer `/ergo review` or
 `/ergo deep`.
 
-**Auto (deterministic, first).** Existing CI (wallet, core, node, it); add `scalafmtCheck`
-(currently not run in CI); version-ledger tests (feedback-loops.md); conflict-marker grep; tier
-path rules (tiers.md); CODEOWNERS; overlap list; flaky annotation.
+**Auto (deterministic, first).** Existing CI (wallet, core, node, it); version-ledger tests
+(feedback-loops.md); conflict-marker grep; tier path rules (tiers.md); CODEOWNERS; overlap list;
+flaky annotation. No scalafmt check (dropped for now: the build has no scalafmt plugin).
 
 **Agent (mid tier, read-only).** Inputs: REVIEW.md, the diff, PR intent and linked issue, read
 access to the checkout. Outputs (JSON): findings tagged `important` / `nit` / `pre-existing`
@@ -134,7 +133,7 @@ Dispatcher: `COMMENT` reviews only (never `APPROVE` or `REQUEST_CHANGES`), label
 | Injection makes the agent stay silent | every `src/main` change still gets a human read (T1 floor) | a human skimming because the packet looked clean; packet always states what checks miss |
 | Noise causes churn | nits private, round cap, outcome tracking (feedback-loops.md) | slow drift; reviewed weekly |
 | Agent-vs-agent loop with an author's pipeline | cap 2 rounds, `/ergo ready` once a day | none expected |
-| Token exhaustion by spam PRs | gates first, WIP limit, first-timer approval | a patient attacker under the WIP limit |
+| Token exhaustion by spam PRs | gates first, first-timer approval, token circuit breaker (rollout.md) | many PRs from one author that pass the gates (no PR limit, by decision) |
 
 **Cost.** First review about 60-200k tokens (mid tier, prompt-cached repo context), verifier about
 10-30k, diff-only re-review about 20-60k. If about 2-3 PRs a day pass gates: about 0.3-0.7M tokens a day.
@@ -190,7 +189,8 @@ in `docs/adr/`, approved by both.
 
 **Seed ADRs.** (1) Indexer schema version and migration policy. (2) Release/integration branch
 policy: base branches, retargeting, deletion. (3) Bounded per-peer state in P2P. (4)
-AI-assisted contributions: disclosure, WIP limit, evidence.
+AI-assisted contributions: the evidence expected from authors (no disclosure field and no PR
+limit, by decision).
 
 | Failure mode | Check | Misses |
 |---|---|---|
@@ -205,16 +205,18 @@ AI-assisted contributions: disclosure, WIP limit, evidence.
 
 **Hard rule.** No public-facing agent touches these; nothing is discussed in a public thread.
 
-**Trigger.** GitHub private vulnerability reporting (enable it), the security email in
-SECURITY.md, a DM to a maintainer (copied into a private advisory), or a stream-1/G10 hold.
+**Trigger.** GitHub private vulnerability reporting (already on, and the only channel; reports
+reach only the repository admins and security managers), a DM to a maintainer (copied into a
+private advisory), or a stream-1/G10 hold.
 
 **Auto.** On a hold: no public bot output of any kind (no label, no comment); a private digest
 entry and notification within the poll interval. Holds expire into the normal path only when a
 maintainer releases them.
 
-**Maintainer action within 24 h of a hold.** Not security: release. Security: ask the reporter to
-move to private reporting; minimize or hide comments, lock the thread, transfer the issue to a
-private repo (needs an org admin) or close it; move any fix PR into the advisory's temporary
+**Maintainer action within 24 h of a hold.** Not security: release. Security (decision
+2026-10-22): hide the comments, lock the thread, and transfer the issue to the private repo. A
+transfer needs write access on both repos; an owner creates that repo once. Then an admin opens
+a private advisory and invites the reporter. Move any fix PR into the advisory's temporary
 private fork.
 
 **Agent (large tier allowed, on demand, private only).** Run locally or in the advisory's private
@@ -222,7 +224,8 @@ fork, with no GitHub token. Reproduce with a failing test (test-only), assess se
 affected versions, draft the advisory. It never posts anywhere.
 
 **Your decisions.** Everything: severity, embargo, fix, which release, disclosure date, credit,
-CVE.
+CVE. jozanek has write access, so he sees a report only after an admin adds him to the
+advisory.
 
 | Failure mode | Check | Misses |
 |---|---|---|
@@ -247,7 +250,7 @@ by SHA in workflows that hold secrets. CI must pass.
 behaviour changes in crypto, serialization or networking.
 
 **Your decisions.** Merge: T1; T2 for `sigma-state`, `scrypto`, BouncyCastle, serialization
-libraries and secret-bearing workflows. Bot PRs are exempt from the WIP limit.
+libraries and secret-bearing workflows.
 
 | Failure mode | Check | Misses |
 |---|---|---|
@@ -274,8 +277,8 @@ serializers, storage keys).
 
 **Hands you.** A go/no-go checklist with red items first.
 
-**Your decisions.** Go/no-go (both maintainers), version, publish. Testnet-first and canary
-operators: see open-questions.md.
+**Your decisions.** Go/no-go (both maintainers), version, publish. Testnet first: yes; the test
+release is announced on Discord (open-questions.md K6).
 
 | Failure mode | Check | Misses |
 |---|---|---|
@@ -310,22 +313,6 @@ your weekly list. The annotation never turns a check green and never skips a tes
 
 ---
 
-## 10. Backlog hygiene (added)
+## 10. Backlog hygiene (removed)
 
-**Trigger.** Weekly.
-
-**Auto.** Stale candidates: no activity in 180 days, base branch gone, unresolved conflicts,
-`S-needs-author` or `S-needs-info` unanswered for 30 days, superseded (the linked issue was closed by another
-PR).
-
-**Agent (small tier).** One line per candidate: still relevant, superseded by #n, or worth
-salvaging.
-
-**Hands you.** At most 20 candidates a week. **Decision:** `/ergo close-batch <id>`; the
-dispatcher posts a reopen-welcome template and closes. Nothing closes without your command.
-
-| Failure mode | Check | Misses |
-|---|---|---|
-| Valuable old work closed | reopen invited; you approve each batch | your own judgement errors |
-
-**Cost.** About 2k tokens per candidate.
+Removed on 2026-10-22: there is no backlog sweep, by decision. Nothing is closed for age.

@@ -80,8 +80,8 @@ save tokens.
 A checked-in ledger `src/test/resources/schema-ledger.conf` records, per release tag, the
 indexer `NewestVersion` (and any other stored-format version). A unit test asserts that the
 current constant is not below the last released value, and that it is above it when the
-ledger's "format changed since release" marker is set. The release checklist updates the
-ledger.
+ledger's "format changed since release" marker is set. The author of the release PR updates
+the ledger as a checklist item.
 
 **What it misses:** a format change where nobody sets the marker. The serializer path rule makes
 those PRs T2, so two people are asked the question.

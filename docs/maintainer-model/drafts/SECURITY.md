@@ -5,11 +5,10 @@
 Do **not** open a public issue, pull request or discussion for a vulnerability, and do not post
 details in chat.
 
-- Preferred: GitHub private vulnerability reporting, under "Report a vulnerability" on this
-  repository's Security tab.
-- Alternative: email `<SECURITY EMAIL - TO CONFIRM>`.
+Use GitHub private vulnerability reporting: "Report a vulnerability" on this repository's
+Security tab. It is the only channel.
 
-No bot or AI agent handles these reports; maintainers read them.
+No bot or AI agent handles these reports. The repository admins read them.
 
 ## What must be reported privately
 
@@ -24,10 +23,10 @@ General hardening with no remote trigger can be a normal public PR. If unsure, r
 
 ## What happens next
 
-| Step | Target (to confirm) |
+| Step | Target |
 |---|---|
 | Acknowledgement | 3 working days |
-| Initial assessment and severity | 10 working days |
+| Initial assessment and severity | 10 working days (proposed) |
 | Fix and coordinated release | depends on severity; agreed with the reporter |
 | Public disclosure | after a fixed release has had time to reach operators |
 
@@ -38,4 +37,4 @@ it to a private repository while the fix is prepared.
 
 ## Supported versions
 
-`<TO CONFIRM: e.g. latest 6.0.x and 6.1.x releases>`
+The latest 6.0.x release.

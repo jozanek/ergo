@@ -30,8 +30,8 @@ From an interview with the maintainer on 2026-10-17:
 |---|---|
 | Decision rights | kushti and jozanek are co-equal; either approves/merges; T2 needs both |
 | Enforcement acceptable | required review + CODEOWNERS on `master` and `v*` branches |
-| Agent tooling | Claude Code plus another paid agent (assumed Copilot review) |
-| Budget | subscription seats, no per-token API bill |
+| Agent tooling | Claude Code plus another paid agent (assumed Copilot review; replaced on 2026-10-22, see below) |
+| Budget | subscription seats (Max plan, confirmed 2026-10-22), no per-token API bill |
 | Local GPU | not used; no local-model tier |
 | Time today | about 2-3 h/day: roughly 60% PR review, 25% issue triage, 15% writing prompts |
 | What went wrong | slop/drive-by PRs; security issues discussed publicly; burden and bottlenecks |
@@ -41,6 +41,19 @@ From an interview with the maintainer on 2026-10-17:
 | Intake outside GitHub | security reports both private (email/DM) and public; questions on chat/forum |
 | Maintainer keeps | deep P2P/sync review, first contact with newcomers, direction with kushti, tuning agents |
 
+From answers on 2026-10-22 (details and the facts checked that day are in
+[open-questions.md](open-questions.md)):
+
+| Topic | Answer |
+|---|---|
+| GitHub roles | jozanek stays at write; the admins (kushti, aslesarenko) apply all settings; aslesarenko is not a code owner |
+| Questions for kushti | K1-K6 answered on 2026-10-22: no direct pushes, T2 needs both, no bypass, private reporting only, contributions to release and feature branches, testnet first; kushti confirms in one private message |
+| Public security report | hide, lock, transfer to a private repo, then a private advisory |
+| Inflow | no per-author PR limit (G5 removed), no AI-disclosure field, no backlog sweep (stream 10 removed); size cap 800 |
+| scalafmt check | dropped for now |
+| Plan and agents | Max plan; agent slots open to any available agent; one AI review per PR |
+| Ops | private ops repo in jozanek's account, self-hosted runner, daily digest issue |
+
 Hard rules from the maintainer: a human is accountable for everything that ships; no bot ever
 approves or merges; security reports never touch a public-facing agent or a public thread.
 
@@ -49,11 +62,11 @@ approves or merges; security reports never touch a public-facing agent or a publ
 - Step 0 sample (2026-10-17): the 50 latest PRs (#2671-#2749, created 10-05..10-17) and 50 latest
   issues, plus search counts for 09-01..10-17. Counts in README.md come from that; the sample is
   short, so treat rates as rough.
-- T2 hit rate (19 of 68 merged PRs since 2026-01-21) was computed from `git log --merges` in a
-  **shallow clone** (about 1,300 commits): for each "Merge pull request" commit not from a
-  release/integration branch, diff against the first parent and match files against the
-  `t2_paths`/`t2_content` lists in `drafts/tier-rules.yml`. Recompute on a full clone before
-  quoting it to kushti.
+- T2 hit rate, recomputed on 2026-10-22 on a full clone: 27 of 111 merged PRs since 2026-01-21
+  (24%). The count uses the GitHub API, so it includes squash merges. It matches files and
+  changed lines against `t2_paths`/`t2_content` in `drafts/tier-rules.yml`, and it excludes
+  release PRs. tiers.md has the breakdown. The first estimate (19 of 68, shallow clone) counted
+  only "Merge pull request" commits on `master`.
 - The #2695 ruling ("only schemas in released versions matter") overruled the AI triage
   recommendation; it is the seed for ADR-0001 and the REVIEW.md schema-version line.
 
@@ -71,25 +84,28 @@ Checked (Claude Code docs, 2026-10-17):
   injection; use only on trusted PRs.
 
 Not checked (verify before relying on them):
-- Ruleset behaviour: code-owner review with 0 required approvals; required check pinned to a
-  GitHub App; deletion blocking. See open-questions.md, assumption 9.
-- Whether the maintainer's subscription terms allow scheduled/CI use.
+- Ruleset behaviour: code-owner review with 0 required approvals. The docs do not say; test it on
+  the fork. (Checked 2026-10-22: a required check can name its source app, and deletion
+  blocking exists.) See open-questions.md, A9.
+- Whether the Max plan terms allow scheduled/CI use.
 - Whether Akka HTTP versions after 10.2.x share Akka's licence change (REVIEW.md states only what
   is in use today).
 - The team name `@ergoplatform/node-maintainers` in `drafts/CODEOWNERS` is invented.
 
 ## What is not done, in order
 
-1. **Maintainer answers** to [open-questions.md](open-questions.md), especially 1-5 (kushti's
-   agreement, org admin, security contact).
-2. **Phase 0** in [rollout.md](rollout.md): private vulnerability reporting, SECURITY.md, the
-   conversation with the highest-volume external author, the agreement with kushti.
+1. **kushti's confirmation** of the K1-K6 answers in [open-questions.md](open-questions.md), in one
+   private message. K4 (admin setup) is asked when phase 2 starts.
+2. **Phase 0** in [rollout.md](rollout.md): SECURITY.md (private vulnerability reporting is
+   already on), the conversation with the highest-volume external author about private
+   reporting, the agreement with kushti.
 3. **Build the dispatcher in dry-run mode.** This is the piece that makes the model save time;
    none of its code exists yet. Spec: [dispatcher.md](dispatcher.md), rules in
-   `drafts/tier-rules.yml`, labels in `drafts/labels.yml`, gates G1-G10 in
+   `drafts/tier-rules.yml`, labels in `drafts/labels.yml`, gates G1-G10 (G5 removed) in
    [streams.md](streams.md) stream 2.
-   - Suggested shape: small Python program in a private ops repo, scheduled every 15 min,
-     read-only GitHub token, no model calls at first.
+   - Shape: small Python program in a private ops repo in jozanek's account, on a self-hosted
+     runner, scheduled every 15 min, jozanek's own read-only token, no model calls at first.
+     Phase 1 needs no App and no admin help.
    - First deliverable: a daily private digest (one issue in the ops repo) listing each open PR and
      issue with gate results, tier and rule that set it, overlaps, flaky-CI matches. No public
      writes.
@@ -97,8 +113,7 @@ Not checked (verify before relying on them):
      phase 1 exit criteria in rollout.md.
 4. Version-ledger test in `src/test` (sketch in [feedback-loops.md](feedback-loops.md)); allowed
    by AGENTS.md's test-only rule.
-5. `scalafmtCheck` in CI (not run today).
-6. Only after phase 1 evidence: labels/comments on, then one AI review, then rulesets.
+5. Only after phase 1 evidence: labels/comments on, then one AI review, then rulesets.
 
 ## Rules for editing this branch
 

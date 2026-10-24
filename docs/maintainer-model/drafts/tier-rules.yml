@@ -1,10 +1,13 @@
 # DRAFT - would live at .github/tier-rules.yml. The dispatcher reads it from the BASE branch only.
 # Changing this file is itself a T2 change. Globs follow gitignore-style matching.
 
-integration_branches:          # TO CONFIRM; G3 gate
-  fixes: v6.0.9
-  rocksdb_line: v5.1.0         # 6.1.x pre-releases
+integration_branches:          # G3 gate; decision 2026-10-22 (open-questions.md K5)
+  release: [v6.0.9, v6.0.10, v5.1.0]   # open release branches; v5.1.0 builds 6.1.x pre-releases
   release_target: master       # only release PRs
+  # A release PR has base master and, as head, a listed release branch of this repo (not a
+  # fork) or the maintainer-only C-release label. Feature branches (not master, not v*), for
+  # example weak-blocks, also take contributions. G3 flags a PR whose base is master and that is
+  # not a release PR, or whose base is a v* branch not listed under `release` (e.g. v6.0.3-RC1).
 
 t0_docs_only:                  # every changed file must match
   - "*.md"
@@ -71,11 +74,8 @@ routing:                       # first reviewer; not a hard-block
     - "C-release"
   default: shortest_queue
 
-gates:
+gates:                         # no per-author PR limit, no backlog sweep (decision 2026-10-22)
   size_max_changed_non_test_lines: 800
   max_commits: 20
-  wip_limit_external: 5
-  wip_limit_trusted: 10
   ai_rounds_untrusted: 2
   ai_rounds_maintainer: 3
-  close_candidate_after_days_without_reply: 30   # joins the weekly batch; never auto-closed

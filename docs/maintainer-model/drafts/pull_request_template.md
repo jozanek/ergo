@@ -24,6 +24,3 @@
 
 ## Depends on / overlaps
 <!-- Other PRs this needs merged first, or touches the same code as. -->
-
-## AI assistance
-<!-- Tools used, and what you verified yourself. "None" is fine. -->

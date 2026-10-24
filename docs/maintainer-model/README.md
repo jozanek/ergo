@@ -34,18 +34,25 @@ effect by accident.
   approving review, a schema-version dispute settled by a rule that existed only in one
   maintainer's head ("only released schemas matter"), a deleted release branch auto-closing
   approved PRs, no templates/CODEOWNERS/SECURITY.md.
+- Checked 2026-10-22: private vulnerability reporting is already on; only `master` is protected,
+  with no required checks; there are no rulesets.
 - Maintainer time today: ~2-3 h/day, roughly 60% PR review, 25% issue triage, 15% prompts.
 
-## Decisions taken (from the interview)
+## Decisions taken (interview 2026-10-17, answers 2026-10-22)
 
 | Topic | Decision |
 |---|---|
-| Decision rights | kushti and jozanek are co-equal: either approves and merges any tier; T2 needs both |
-| Enforcement | required review + CODEOWNERS on `master` and release branches (`v*`) |
+| Decision rights | kushti and jozanek are co-equal: either approves and merges any tier; T2 needs both (on a maintainer's own PR, the other one's approval) |
+| GitHub roles | jozanek stays at write; the admins (kushti, aslesarenko) apply all settings; aslesarenko is not a code owner |
+| Enforcement | required review + CODEOWNERS on `master`, the release branches (`v*`) and feature branches that take contributions (`weak-blocks`); no direct pushes and no bypass, for anyone |
 | Risk | everything in production code is treated as high risk: no zero-human tier for `src/main` |
 | Approval | one maintainer by default; both when a path rule, the classifier or the first reviewer flags it |
 | Trust | no external author is on the trusted list yet; trust is earned (see tiers.md) |
-| Models | paid subscription seats only, no local models; deterministic checks do most of the work |
+| Inflow | no per-author PR limit, no AI-disclosure field, no backlog sweep; size cap 800 changed non-test lines |
+| Models | paid subscription seats (Max plan) only, no local models; agent slots open to any available agent, one AI review per PR; deterministic checks do most of the work |
+| Ops | ops repo in jozanek's account on a self-hosted runner; daily digest as an issue there; no scalafmt check for now |
+| Security reports | private vulnerability reporting only; acknowledge within 3 working days; the latest 6.0.x release is supported |
+| Releases | testnet first, announced on Discord |
 | Kept by humans | deep review of P2P/sync, first contact with newcomers, direction with kushti, tuning agents |
 | Hard rules | a human is accountable for everything that ships; no bot approves or merges; security reports never touch a public-facing agent or a public thread |
 
@@ -57,15 +64,14 @@ the dispatcher. **Human** = a maintainer decides.
 | Stream | Auto | Agent | Human |
 |---|---|---|---|
 | Issue triage | form validation, security hold, issue/PR pairing, dedupe candidates, area labels from paths | classify, judge duplicates, draft reply (small tier) | accept direction, priority, first contact |
-| PR intake gates | template, size, base branch, stale base, per-author WIP limit, direction-first, overlap, first-timer | none (0 tokens) | waive a gate |
-| PR review | CI, scalafmt, version ledger, tier path rules, CODEOWNERS, flaky annotation | one review + one verifier pass, evidence packet (mid tier) | read and approve on the head commit; T2 second approval; merge click |
+| PR intake gates | template, size, base branch, stale base, direction-first, overlap, first-timer | none (0 tokens) | waive a gate |
+| PR review | CI, version ledger, tier path rules, CODEOWNERS, flaky annotation | one review + one verifier pass, evidence packet (mid tier) | read and approve on the head commit; T2 second approval; merge click |
 | Questions | redirect links in issue forms | weekly FAQ drafts from questions you paste (small tier) | which answers become docs |
 | Architecture | triggers: new route, config key, P2P message, storage format, published API | decision brief and ADR draft (mid tier, on demand) | you and kushti decide; ADR merged |
 | Security | SECURITY.md, private reporting, silent hold on public items | private only, on demand, no GitHub token | everything |
 | Dependencies | Dependabot (actions) and Scala Steward with pins, CI | changelog risk summary (small tier) | merge; T2 for crypto/sigma/serialization |
 | Releases | do-release.sh, tag check, retarget-before-delete, merged-PR list | release notes and upgrade/downgrade notes (mid tier) | go/no-go (both), publish |
 | CI health (added) | failing-test extraction, flaky ledger, per-test failure rate | diagnose a flaky test, test-only fix (on demand) | prioritise |
-| Backlog (added) | stale/superseded detection | one-line salvage note per candidate (small tier) | approve closure batches |
 
 ## Where this differs from the source article, and why
 
@@ -78,7 +84,7 @@ reasoning carries over; its structure does not, because the situation differs:
    fewer and better-prepared PRs reaching that maintainer, not from skipping the read.
 2. **Gates before tokens.** The article has trusted authors and a large budget. Here a single
    external pipeline produces half the volume and tokens are capped, so deterministic gates
-   (WIP limit, size, direction-first, stale base) run first and most PRs that fail them never
+   (size, direction-first, stale base) run first and most PRs that fail them never
    cost a model call.
 3. **One reviewer plus one verifier, not a voting panel.** Same intent (only verified findings
    are posted), at a fraction of the tokens.

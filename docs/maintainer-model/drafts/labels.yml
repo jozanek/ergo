@@ -32,7 +32,6 @@
 - {name: S-needs-author,     color: fef2c0, by: bot,        description: Waiting on PR author}
 - {name: S-needs-direction,  color: d93f0b, by: bot,        description: Agree direction on the issue first}
 - {name: S-accepted,         color: 0e8a16, by: maintainer, description: Direction agreed; PR welcome}
-- {name: S-queued,           color: c5def5, by: bot,        description: Over the author WIP limit; waits its turn}
 - {name: S-needs-split,      color: fef2c0, by: bot,        description: Too large to review; please split}
 - {name: S-needs-rebase,     color: fef2c0, by: bot,        description: Carries unrelated commits or stale base}
 - {name: S-blocked,          color: b60205, by: bot,        description: Depends on another PR}

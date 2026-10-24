@@ -17,18 +17,29 @@ ergoplatform/ergo (public)                 <ops repo> (private, maintainers only
                                               digest    one private issue per day for maintainers
 ```
 
-- **GitHub App** ("ergo-dispatcher", installed on ergoplatform/ergo by an org admin):
-  `metadata:read`, `contents:read`, `issues:write`, `pull_requests:write`, `checks:write`.
+- **GitHub App** ("ergo-dispatcher"; jozanek creates it, and an owner or admin installs it on
+  ergoplatform/ergo when phase 2 starts; phase 1 reads public data with jozanek's own read-only
+  token): `metadata:read`, `contents:read`, `issues:write`, `pull_requests:write`, `checks:write`.
   No `contents:write` (so it cannot push or merge) and no `administration`. Installation tokens
   for `collect` and `gates` are minted with read-only permissions; only `dispatch` gets the write
   set. The App is never a code owner, so its reviews cannot satisfy CODEOWNERS.
-- **Ops repo**: dispatcher code, prompts, REVIEW prompt versions, JSON schemas, flaky ledger,
-  eval set, metrics, daily digest. Changes to the dispatcher or prompts are reviewed like T2.
-- **Runner**: GitHub-hosted runners on the ops repo, or a self-hosted runner in a container on
-  your own server (the GPU box can serve as a runner without running models). The agent job runs
-  in a throwaway container either way.
+- **Ops repo** (private, in jozanek's account; kushti is a collaborator): dispatcher code,
+  prompts, REVIEW prompt versions, JSON schemas, flaky ledger, eval set, metrics, daily digest.
+  Changes to the dispatcher or prompts are reviewed like T2.
+- **Runner**: a self-hosted runner in a container on jozanek's own server (decision 2026-10-22).
+  Self-hosted runners use no Actions minutes. GitHub-hosted minutes would not cover the
+  15-minute `collect` job (about 2,900 runs a month). The agent job runs in a throwaway container.
 
 ## Agent job (read-only)
+
+Any available agent can fill an agent slot (decision 2026-10-22) if it meets this contract:
+- read-only file tools; no shell, edit or web tools;
+- no GitHub token in the job; no network access except the model API;
+- REVIEW.md, AGENTS.md and tier-rules.yml come from the base branch;
+- the output is JSON that validates against the schema in the ops repo.
+
+Each PR still gets one AI review, whichever agent runs it. The Claude Code setup below is one
+example (the seats are on the Max plan).
 
 Authentication: `CLAUDE_CODE_OAUTH_TOKEN` from `claude setup-token` (subscription plans). Do
 not set `ANTHROPIC_API_KEY` in the job: in print mode it takes precedence over the OAuth token.
@@ -83,7 +94,7 @@ Parsed only from comments whose author is a listed maintainer login **and** has
 `author_association` OWNER, MEMBER or COLLABORATOR.
 
 `/ergo review`, `/ergo deep` (large tier), `/ergo tier 2`, `/ergo waive <gate>`,
-`/ergo send-draft`, `/ergo retarget <branch>`, `/ergo close-batch <id>`, `/ergo release-prep <v>`,
+`/ergo send-draft`, `/ergo retarget <branch>`, `/ergo release-prep <v>`,
 `/ergo wrong|intended|minor` (finding outcome, reply in the finding's thread).
 
 From the PR author only: `/ergo ready` (diff-only re-review, at most once a day, within the
@@ -126,15 +137,14 @@ pushed someone into a harmful change.
 
 ## Alternatives considered
 
-- **Managed Code Review (Team/Enterprise plans only).** Comments only, never approves; reads
-  REVIEW.md from the base branch; skips fork PRs unless a write-access user comments
-  `@claude review`. Usable as the single AI review if your plan has it, but it posts directly
-  rather than through the dispatcher, so the nit suppression, round cap and outbound filter here
-  would not apply. Decide after the measure-only weeks.
+- **Managed Code Review (Team/Enterprise plans only).** Not available: the seats are on the Max
+  plan (2026-10-22). It would also post directly rather than through the dispatcher, so the nit
+  suppression, round cap and outbound filter here would not apply.
 - **claude-code-action in the public repo.** Fork `pull_request` runs get no secrets, and
   `pull_request_target` would expose them to fork-controlled content. Not used for external PRs.
 - **claude-code-security-review action.** Its README says it is not hardened against prompt
   injection and is meant for trusted PRs. Not used on external PRs; maintainers may run
   `/security-review` locally on a trusted checkout.
-- **Two AI reviewers.** Pick one (this, managed Code Review, or Copilot). Two reviewers double
-  noise and rounds; the quota failures already seen on Copilot reviews add noise of their own.
+- **Two AI reviewers on one PR.** No. Any available agent may run the one review (contract
+  above). Two reviewers double noise and rounds; the quota failures already seen on Copilot
+  reviews add noise of their own.

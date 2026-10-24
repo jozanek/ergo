@@ -10,7 +10,7 @@ to that tool and leave this file.
 - Every finding cites `file:line` from this diff or the code it calls. No guesses from names.
 - Tag each finding `important`, `nit` or `pre-existing` (exists on the base branch, not caused
   by this PR). Name the class of bug and list every instance in one finding.
-- Formatting and import order are scalafmt's job: never comment on them. At most 3 nits.
+- Never comment on formatting or import order. At most 3 nits.
 - Start the summary with a count ("2 important, 1 nit"). If there is nothing to fix, say
   "Nothing to fix" and stop.
 - Never repeat a finding already posted on this PR. On re-review, look only at the new diff.

@@ -7,10 +7,10 @@ automatically on regressions.
 
 | Item | Why now |
 |---|---|
-| Enable private vulnerability reporting; publish SECURITY.md | public security disclosure already happened; this is a policy, not a bot |
-| Talk to the highest-volume external author: WIP limit, private reporting for DoS findings, AI disclosure | one conversation changes about half the inflow |
-| Agree with kushti: rulesets, CODEOWNERS, no direct pushes to `master`/`v*`, T2 list | nothing below is enforceable without it |
-| Create the ops repo, GitHub App, team; sync labels | plumbing |
+| Publish SECURITY.md (private vulnerability reporting is already on) | public security disclosure already happened; this is a policy, not a bot |
+| Talk to the highest-volume external author about private reporting for DoS findings | this author sends about half of all PRs |
+| Confirm the K1-K6 answers with kushti in one private message (open-questions.md) | phase 3 is not enforceable without it |
+| Create the ops repo in jozanek's account with a self-hosted runner; sync labels | plumbing; the App and the team wait until phase 2 |
 
 If you want the first two weeks to be strictly measure-only, move CONTRIBUTING.md and the
 templates to phase 2. Keep SECURITY.md in phase 0 either way.
@@ -19,6 +19,7 @@ templates to phase 2. Keep SECURITY.md in phase 0 either way.
 
 No public bot output and no enforcement changes. The dispatcher runs in **dry-run**: it
 computes gates, tiers, packets and triage verdicts and writes them only to the private digest.
+It needs no App and no admin help: it reads public data with jozanek's own read-only token.
 
 You log minutes per stream once a day (one line in the ops repo: `2026-10-20 pr:70 issues:30
 prompts:20 other:10`). Compare the dispatcher's calls with yours:
@@ -33,12 +34,12 @@ in the sample.
 ## Phase 2: deterministic first (weeks 3-4)
 
 1. **Intake gates as labels plus one gate comment** (stream 2). The biggest saving for the
-   least effort: WIP limit, direction-first, size, stale base and overlap keep work from
-   reaching you at all. 0 tokens.
+   least effort: direction-first, size, stale base and overlap keep work from reaching you at
+   all. 0 tokens. Needs the App (open-questions.md K4).
 2. **Flaky-CI annotation** (stream 9). Stops the repeated "is this flaky?" threads. 0 tokens.
 3. **Issue triage on the dispatcher** (stream 1): move your existing triage prompts into the ops
    repo with a schema; auto `C-*`/`A-*` labels; first-contact drafts stay yours.
-4. `scalafmtCheck` in CI; version-ledger test; conflict-marker grep.
+4. Version-ledger test; conflict-marker grep.
 
 ## Phase 3: one AI review and enforcement (weeks 5-6)
 
@@ -51,9 +52,8 @@ in the sample.
 ## Phase 4: widen (week 7 onward)
 
 8. Dependabot (actions) and Scala Steward with pins.
-9. Backlog hygiene: at most 20 close candidates a week.
-10. Direction agenda and ADRs; seed ADR-0001..0004.
-11. Merge queue, if stale-base breakage persists after G4.
+9. Direction agenda and ADRs; seed ADR-0001..0004.
+10. Merge queue, if stale-base breakage persists after G4.
 
 ## Metrics
 
@@ -82,7 +82,7 @@ in the sample.
 - Security-held items that received any public bot output (target 0); time to private
   acknowledgement.
 - First-time contributors with no human response in 7 days; first-time PR abandonment.
-- Emergency ruleset bypasses.
+- Ruleset changes, and PRs merged without the required approvals (target 0; there is no bypass).
 
 ## Loosen on evidence (both maintainers decide)
 
@@ -91,7 +91,7 @@ in the sample.
 | Maintainer-authored additive tests-only PRs to T0 | 4 weeks, 0 regressions from tests-only PRs (15% of merged PRs today) |
 | `ci.yml` and `bootstrap-*` from T2 to T1 | actions SHA-pinned; secrets moved to release-only workflows |
 | Nits posted publicly | `wrong` under 10% on nits for 4 weeks |
-| Raise the WIP limit or size cap | waiver rate over 20% on that gate |
+| Raise the size cap | waiver rate over 20% on G2 |
 | First external trusted author | criteria in tiers.md |
 | Integration tests as a required check | flake rate under 5% for 4 weeks |
 
