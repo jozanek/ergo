@@ -1,0 +1,81 @@
+# DRAFT - would live at .github/tier-rules.yml. The dispatcher reads it from the BASE branch only.
+# Changing this file is itself a T2 change. Globs follow gitignore-style matching.
+
+integration_branches:          # G3 gate; decision 2026-10-22 (open-questions.md K5)
+  release: [v6.0.9, v6.0.10, v5.1.0]   # open release branches; v5.1.0 builds 6.1.x pre-releases
+  release_target: master       # only release PRs
+  # A release PR has base master and, as head, a listed release branch of this repo (not a
+  # fork) or the maintainer-only C-release label. Feature branches (not master, not v*), for
+  # example weak-blocks, also take contributions. G3 flags a PR whose base is master and that is
+  # not a release PR, or whose base is a v* branch not listed under `release` (e.g. v6.0.3-RC1).
+
+t0_docs_only:                  # every changed file must match
+  - "*.md"
+  - "papers/**"
+  - "docs/**"
+t0_exclusions:                 # these are never T0
+  - AGENTS.md
+  - REVIEW.md
+  - SECURITY.md
+  - CONTRIBUTING.md
+  - "docs/adr/**"
+  - "docs/maintainer-model/**"
+
+t2_paths:
+  consensus:
+    - "ergo-core/src/main/scala/org/ergoplatform/settings/ValidationRules.scala"
+    - "ergo-core/src/main/scala/org/ergoplatform/settings/ErgoValidationSettings*.scala"
+    - "ergo-core/src/main/scala/org/ergoplatform/settings/{Parameters,LaunchParameters,VotingSettings,Constants,ReemissionSettings}.scala"
+    - "ergo-core/src/main/scala/org/ergoplatform/settings/ChainSettings*.scala"
+    - "ergo-core/src/main/scala/org/ergoplatform/mining/Autolykos*.scala"
+    - "ergo-core/src/main/scala/org/ergoplatform/mining/difficulty/**"
+    - "ergo-core/src/main/scala/org/ergoplatform/modifiers/**"
+    - "ergo-core/src/main/scala/org/ergoplatform/nodeView/state/**"
+    - "ergo-core/src/main/scala/org/ergoplatform/nodeView/history/storage/modifierprocessors/**"
+    - "**/reemission/**"
+    - "src/main/scala/org/ergoplatform/nodeView/state/{UtxoState*,DigestState,ErgoState*}.scala"
+    - "src/main/scala/org/ergoplatform/nodeView/history/storage/modifierprocessors/{HeadersProcessor,FullBlock*,PopowProcessor}.scala"
+    - "src/main/resources/{mainnet,testnet}.conf"
+  wire_format:
+    - "ergo-core/src/main/scala/org/ergoplatform/network/{Version,Handshake*,*PeerFeature*}.scala"
+    - "ergo-core/src/main/scala/org/ergoplatform/network/message/**"
+    - "src/main/scala/org/ergoplatform/network/message/**"
+  storage_format:
+    - "avldb/src/main/**"
+    - "**/*Serializer.scala"
+  keys_and_auth:
+    - "ergo-wallet/src/main/scala/org/ergoplatform/wallet/{secrets,mnemonic,crypto,interpreter}/**"
+    - "src/main/scala/scorex/core/api/http/**"
+    - "src/main/scala/org/ergoplatform/http/ErgoHttpService.scala"
+  supply_chain:
+    - ".github/workflows/{ci,release,release-binaries,docker-publish}.yml"
+    - ".github/CODEOWNERS"
+    - ".github/tier-rules.yml"
+    - "{REVIEW,AGENTS,SECURITY}.md"
+    - "docs/adr/**"
+    - "{do-release.sh,Dockerfile,ergo-installer.sh}"
+    - "ci/**"
+    - "project/**"
+
+t2_content:                    # a changed (+/-) line matching the regex in that file
+  - {file: build.sbt, regex: "sigmaStateVersion|sigma-state|scrypto|bouncycastle"}
+  - {file: "src/main/scala/org/ergoplatform/nodeView/history/extra/ExtraIndexer.scala", regex: "NewestVersion\\s*[:=]"}
+  - {file: "**/*.scala", regex: "(SchemaVersion|StorageVersion|FormatVersion)\\w*\\s*[:=]"}
+
+routing:                       # first reviewer; not a hard-block
+  jozanek:
+    - "src/main/scala/scorex/core/network/**"
+    - "src/main/scala/org/ergoplatform/network/**"
+    - "ergo-core/src/main/scala/org/ergoplatform/network/**"
+    - "src/main/scala/org/ergoplatform/nodeView/history/storage/modifierprocessors/ToDownloadProcessor.scala"
+  kushti:
+    - t2:consensus
+    - t2:storage_format
+    - "C-release"
+  default: shortest_queue
+
+gates:                         # no per-author PR limit, no backlog sweep (decision 2026-10-22)
+  size_max_changed_non_test_lines: 800
+  max_commits: 20
+  ai_rounds_untrusted: 2
+  ai_rounds_maintainer: 3

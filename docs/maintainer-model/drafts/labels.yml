@@ -1,0 +1,51 @@
+# DRAFT label set. Existing labels kept: C-bug, C-enhancement, C-question, A-network, A-api,
+# A-wallet, A-consensus, A-tests, S-ready-for-human. There is deliberately NO public security
+# label: a public label would advertise an unfixed vulnerability. Holds are tracked privately.
+#
+# "by": who may apply/remove. bot = dispatcher may apply; maintainer = only a maintainer command
+# or a maintainer by hand (the dispatcher re-checks and reverts unauthorised changes).
+
+# Category
+- {name: C-bug,          color: d73a4a, by: bot,        description: Something is broken}
+- {name: C-enhancement,  color: a2eeef, by: bot,        description: New behaviour or feature}
+- {name: C-question,     color: d876e3, by: bot,        description: Usage question; redirected}
+- {name: C-docs,         color: 0075ca, by: bot,        description: Documentation only}
+- {name: C-ci,           color: 5319e7, by: bot,        description: CI, build or release tooling}
+- {name: C-deps,         color: 0366d6, by: bot,        description: Dependency update}
+- {name: C-release,      color: 0e8a16, by: maintainer, description: Release candidate or version bump}
+- {name: C-tracking,     color: c5def5, by: maintainer, description: Tracking or meta issue}
+
+# Area
+- {name: A-consensus,    color: b60205, by: bot, description: Validity rules, voting, PoW, reemission}
+- {name: A-network,      color: 1d76db, by: bot, description: P2P, sync, peers, fork handling}
+- {name: A-storage,      color: 5319e7, by: bot, description: avldb, history storage, snapshots, migrations}
+- {name: A-indexer,      color: fbca04, by: bot, description: Extra indexer and its API}
+- {name: A-mining,       color: f9d0c4, by: bot, description: Candidate generation, mining API, storage rent}
+- {name: A-mempool,      color: c2e0c6, by: bot, description: Mempool admission, cost limits, eviction}
+- {name: A-api,          color: bfdadc, by: bot, description: REST API, OpenAPI}
+- {name: A-wallet,       color: 7057ff, by: bot, description: Wallet, keys, signing}
+- {name: A-tests,        color: ededed, by: bot, description: Tests and test harness}
+
+# Status (one at a time)
+- {name: S-needs-triage,     color: ededed, by: bot,        description: Not triaged yet}
+- {name: S-needs-info,       color: fef2c0, by: bot,        description: Waiting on reporter}
+- {name: S-needs-author,     color: fef2c0, by: bot,        description: Waiting on PR author}
+- {name: S-needs-direction,  color: d93f0b, by: bot,        description: Agree direction on the issue first}
+- {name: S-accepted,         color: 0e8a16, by: maintainer, description: Direction agreed; PR welcome}
+- {name: S-needs-split,      color: fef2c0, by: bot,        description: Too large to review; please split}
+- {name: S-needs-rebase,     color: fef2c0, by: bot,        description: Carries unrelated commits or stale base}
+- {name: S-blocked,          color: b60205, by: bot,        description: Depends on another PR}
+- {name: S-ready-for-human,  color: 0e8a16, by: bot,        description: Gates passed, findings answered; maintainer review}
+
+# Tier
+- {name: T0-none,  color: c2e0c6, by: bot,        description: Docs-only; no approval required}
+- {name: T1-one,   color: fbca04, by: bot,        description: One maintainer reads and approves}
+- {name: T2-both,  color: b60205, by: bot,        description: Both maintainers approve the head commit (removal - maintainer only)}
+
+# Process flags
+- {name: X-first-time,           color: 7057ff, by: bot,        description: First contribution; maintainer does first contact}
+- {name: X-possible-duplicate,   color: cccccc, by: bot,        description: Overlaps another open item}
+- {name: X-flaky-ci,             color: e4e669, by: bot,        description: Failure matches the flaky ledger}
+- {name: X-ai-review-exhausted,  color: cccccc, by: bot,        description: AI round cap reached; human decides}
+- {name: X-regression,           color: b60205, by: maintainer, description: "Fixes a regression; body names the cause as Regressed-by #n"}
+- {name: P-release-blocker,      color: b60205, by: maintainer, description: Must be resolved before the next release}

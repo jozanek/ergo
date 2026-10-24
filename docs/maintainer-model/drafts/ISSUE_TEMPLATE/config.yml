@@ -1,0 +1,9 @@
+# DRAFT - would live at .github/ISSUE_TEMPLATE/config.yml
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability (private)
+    url: https://github.com/ergoplatform/ergo/security/advisories/new
+    about: Never file security problems as public issues.
+  - name: Questions and node-operator help
+    url: <TO CONFIRM - forum or chat URL>
+    about: Usage questions are answered faster there than in issues.

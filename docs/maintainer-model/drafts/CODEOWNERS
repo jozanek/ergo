@@ -1,0 +1,27 @@
+# DRAFT - would live at .github/CODEOWNERS. Read from the base branch, so a PR cannot change
+# its own owners. Last matching pattern wins.
+#
+# Assumes an org team containing kushti and jozanek with write access. Team review
+# auto-assignment (load balance) then requests ONE of them instead of pinging both on every PR.
+# Without a team, replace the team with "@kushti @jozanek". Only an owner can create the team.
+# aslesarenko keeps admin but is not a code owner (decision 2026-10-22).
+#
+# One code-owner approval = tier T1. T2 (both maintainers) is enforced by the ergo-tier check,
+# because CODEOWNERS is satisfied by any single owner.
+
+# T1 floor: every file needs a maintainer approval.
+*                           @ergoplatform/node-maintainers
+
+# T0: docs-only paths have no owner (no approval required; a maintainer still merges).
+*.md
+/papers/
+/docs/
+
+# Agent-steering, governance and decision files are owned again (they change how review works).
+/AGENTS.md                  @ergoplatform/node-maintainers
+/REVIEW.md                  @ergoplatform/node-maintainers
+/SECURITY.md                @ergoplatform/node-maintainers
+/CONTRIBUTING.md            @ergoplatform/node-maintainers
+/docs/adr/                  @ergoplatform/node-maintainers
+/docs/maintainer-model/     @ergoplatform/node-maintainers
+/.github/                   @ergoplatform/node-maintainers
